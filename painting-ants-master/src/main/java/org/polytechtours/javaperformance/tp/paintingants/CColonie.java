@@ -17,7 +17,11 @@ public class CColonie implements Runnable {
   private Vector<CFourmi> mColonie;
   private PaintingAnts mApplis;
 
-  /** Creates a new instance of CColonie */
+  /**
+   * Constructeur avec paramètres de la classe CColonie
+   * @param pColonie
+   * @param pApplis
+   */
   public CColonie(Vector<CFourmi> pColonie, PaintingAnts pApplis) {
     mColonie = pColonie;
     mApplis = pApplis;
@@ -36,11 +40,6 @@ public class CColonie implements Runnable {
           mColonie.get(i).deplacer();
           mApplis.compteur();
         }
-      } else {
-        /*
-         * try { Thread.sleep(100); } catch (InterruptedException e) { break; }
-         */
-
       }
     }
   }

@@ -6,43 +6,61 @@ import java.awt.Color;
 import java.util.Random;
 
 public class CFourmi {
-  // Tableau des incrémentations à effectuer sur la position des fourmis
-  // en fonction de la direction du deplacement
-  static private int[][] mIncDirection = new int[8][2];
-  // le generateur aléatoire (Random est thread safe donc on la partage)
+  /* Tableau des incrémentations à effectuer sur la position des fourmis
+  en fonction de la direction du deplacement*/
+  private static final int[][] mIncDirection = {
+          {0, -1}, {1, -1}, {1, 0}, {1, 1},
+          {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}
+  };
+
+  /* le generateur aléatoire (Random est thread safe donc on la partage)*/
   private static Random GenerateurAleatoire = new Random();
-  // couleur déposé par la fourmi
+  /* couleur déposé par la fourmi*/
   private Color mCouleurDeposee;
   private float mLuminanceCouleurSuivie;
-  // objet graphique sur lequel les fourmis peuvent peindre
+  /* objet graphique sur lequel les fourmis peuvent peindre*/
   private CPainting mPainting;
-  // Coordonées de la fourmi
+  /* Coordonées de la fourmi*/
   private int x, y;
-  // Proba d'aller a gauche, en face, a droite, de suivre la couleur
+  /* Proba d'aller a gauche, en face, a droite, de suivre la couleur*/
   private float[] mProba = new float[4];
-  // Numéro de la direction dans laquelle la fourmi regarde
+  /* Numéro de la direction dans laquelle la fourmi regarde*/
   private int mDirection;
-  // Taille de la trace de phéromones déposée par la fourmi
+  /* Taille de la trace de phéromones déposée par la fourmi*/
   private int mTaille;
-  // Pas d'incrémentation des directions suivant le nombre de directions
-  // allouées à la fourmies
+  /* Pas d'incrémentation des directions suivant le nombre de directions
+   allouées à la fourmies*/
   private int mDecalDir;
-  // l'applet
+  /* l'applet*/
   private PaintingAnts mApplis;
-  // seuil de luminance pour la détection de la couleur recherchée
+  /* seuil de luminance pour la détection de la couleur recherchée*/
   private float mSeuilLuminance;
-  // nombre de déplacements de la fourmi
+  /* nombre de déplacements de la fourmi*/
   private long mNbDeplacements;
 
-  /*************************************************************************************************
-  */
+  /**
+   * Contructeur avec paramètres de la classe CFourmi
+   * @param pCouleurDeposee
+   * @param pCouleurSuivie
+   * @param pProbaTD
+   * @param pProbaG
+   * @param pProbaD
+   * @param pProbaSuivre
+   * @param pPainting
+   * @param pTypeDeplacement
+   * @param pInit_x
+   * @param pInit_y
+   * @param pInitDirection
+   * @param pTaille
+   * @param pSeuilLuminance
+   * @param pApplis
+   */
   public CFourmi(Color pCouleurDeposee, Color pCouleurSuivie, float pProbaTD, float pProbaG, float pProbaD,
-      float pProbaSuivre, CPainting pPainting, char pTypeDeplacement, float pInit_x, float pInit_y, int pInitDirection,
-      int pTaille, float pSeuilLuminance, PaintingAnts pApplis) {
+                 float pProbaSuivre, CPainting pPainting, char pTypeDeplacement, float pInit_x, float pInit_y, int pInitDirection,
+                 int pTaille, float pSeuilLuminance, PaintingAnts pApplis) {
 
     mCouleurDeposee = pCouleurDeposee;
-    mLuminanceCouleurSuivie = 0.2426f * pCouleurDeposee.getRed() + 0.7152f * pCouleurDeposee.getGreen()
-        + 0.0722f * pCouleurDeposee.getBlue();
+    mLuminanceCouleurSuivie = calculateLuminance(mCouleurDeposee);
     mPainting = pPainting;
     mApplis = pApplis;
 
@@ -53,95 +71,31 @@ public class CFourmi {
     mTaille = pTaille;
 
     // initialisation des probas
-    mProba[0] = pProbaG; // proba d'aller à gauche
-    mProba[1] = pProbaTD; // proba d'aller tout droit
-    mProba[2] = pProbaD; // proba d'aller à droite
-    mProba[3] = pProbaSuivre; // proba de suivre la couleur
+    initializeProba(pProbaTD, pProbaG, pProbaD, pProbaSuivre);
 
     // nombre de directions pouvant être prises : 2 types de déplacement
     // possibles
-    if (pTypeDeplacement == 'd') {
-      mDecalDir = 2;
-    } else {
-      mDecalDir = 1;
-    }
-
-    // initialisation du tableau des directions
-    CFourmi.mIncDirection[0][0] = 0;
-    CFourmi.mIncDirection[0][1] = -1;
-    CFourmi.mIncDirection[1][0] = 1;
-    CFourmi.mIncDirection[1][1] = -1;
-    CFourmi.mIncDirection[2][0] = 1;
-    CFourmi.mIncDirection[2][1] = 0;
-    CFourmi.mIncDirection[3][0] = 1;
-    CFourmi.mIncDirection[3][1] = 1;
-    CFourmi.mIncDirection[4][0] = 0;
-    CFourmi.mIncDirection[4][1] = 1;
-    CFourmi.mIncDirection[5][0] = -1;
-    CFourmi.mIncDirection[5][1] = 1;
-    CFourmi.mIncDirection[6][0] = -1;
-    CFourmi.mIncDirection[6][1] = 0;
-    CFourmi.mIncDirection[7][0] = -1;
-    CFourmi.mIncDirection[7][1] = -1;
+    initializeIncDirection(pTypeDeplacement);
 
     mSeuilLuminance = pSeuilLuminance;
     mNbDeplacements = 0;
+
+    x = modulo((int) pInit_x, pPainting.getLargeur());
+    y = modulo((int) pInit_y, pPainting.getLargeur());
+
   }
 
-  /*************************************************************************************************
-   * Titre : void deplacer() Description : Fonction de deplacement de la fourmi
-   *
+  /**
+   * Fonction de déplacement de la fourmi
    */
   public synchronized void deplacer() {
-    float tirage, prob1, prob2, prob3, total;
-    int[] dir = new int[3];
-    int i, j;
-    Color lCouleur;
-
     mNbDeplacements++;
 
-    dir[0] = 0;
-    dir[1] = 0;
-    dir[2] = 0;
-
-    // le tableau dir contient 0 si la direction concernée ne contient pas la
-    // couleur
-    // à suivre, et 1 sinon (dir[0]=gauche, dir[1]=tt_droit, dir[2]=droite)
-    i = modulo(x + CFourmi.mIncDirection[modulo(mDirection - mDecalDir, 8)][0], mPainting.getLargeur());
-    j = modulo(y + CFourmi.mIncDirection[modulo(mDirection - mDecalDir, 8)][1], mPainting.getHauteur());
-    if (mApplis.mBaseImage != null) {
-      lCouleur = new Color(mApplis.mBaseImage.getRGB(i, j));
-    } else {
-      lCouleur = new Color(mPainting.getCouleur(i, j).getRGB());
-    }
-    if (testCouleur(lCouleur)) {
-      dir[0] = 1;
-    }
-
-    i = modulo(x + CFourmi.mIncDirection[mDirection][0], mPainting.getLargeur());
-    j = modulo(y + CFourmi.mIncDirection[mDirection][1], mPainting.getHauteur());
-    if (mApplis.mBaseImage != null) {
-      lCouleur = new Color(mApplis.mBaseImage.getRGB(i, j));
-    } else {
-      lCouleur = new Color(mPainting.getCouleur(i, j).getRGB());
-    }
-    if (testCouleur(lCouleur)) {
-      dir[1] = 1;
-    }
-    i = modulo(x + CFourmi.mIncDirection[modulo(mDirection + mDecalDir, 8)][0], mPainting.getLargeur());
-    j = modulo(y + CFourmi.mIncDirection[modulo(mDirection + mDecalDir, 8)][1], mPainting.getHauteur());
-    if (mApplis.mBaseImage != null) {
-      lCouleur = new Color(mApplis.mBaseImage.getRGB(i, j));
-    } else {
-      lCouleur = new Color(mPainting.getCouleur(i, j).getRGB());
-    }
-    if (testCouleur(lCouleur)) {
-      dir[2] = 1;
-    }
-
-    // tirage d'un nombre aléatoire permettant de savoir si la fourmi va suivre
-    // ou non la couleur
-    tirage = GenerateurAleatoire.nextFloat();// Math.random();
+    float tirage = GenerateurAleatoire.nextFloat();
+    float prob1, prob2, prob3, total;
+    int[] dir = calculateDirection();
+    int i, j;
+    Color lCouleur;
 
     // la fourmi suit la couleur
     if (((tirage <= mProba[3]) && ((dir[0] + dir[1] + dir[2]) > 0)) || ((dir[0] + dir[1] + dir[2]) == 3)) {
@@ -161,15 +115,11 @@ public class CFourmi {
     prob3 = prob3 / total + prob2;
 
     // incrémentation de la direction de la fourmi selon la direction choisie
-    tirage = GenerateurAleatoire.nextFloat();// Math.random();
-    if (tirage < prob1) {
+    float tirageDirection = GenerateurAleatoire.nextFloat();
+    if (tirageDirection < prob1) {
       mDirection = modulo(mDirection - mDecalDir, 8);
-    } else {
-      if (tirage < prob2) {
-        /* rien, on va tout droit */
-      } else {
-        mDirection = modulo(mDirection + mDecalDir, 8);
-      }
+    } else if (tirageDirection >= prob2){
+      mDirection = modulo(mDirection + mDecalDir, 8);
     }
 
     x += CFourmi.mIncDirection[mDirection][0];
@@ -184,56 +134,91 @@ public class CFourmi {
     mApplis.IncrementFpsCounter();
   }
 
-  /*************************************************************************************************
-  */
+  /**
+   * Calcule et renvoie la direction
+   * @return la direction
+   */
+  private int[] calculateDirection() {
+    int[] dir = new int[3];
+
+    for (int i = 0; i < 3; i++) {
+      int nextX = modulo(x + mIncDirection[modulo(mDirection + i * mDecalDir, 8)][0], mPainting.getLargeur());
+      int nextY = modulo(y + mIncDirection[modulo(mDirection + i * mDecalDir, 8)][1], mPainting.getHauteur());
+
+      Color nextColor = (mApplis.mBaseImage != null) ?
+              new Color(mApplis.mBaseImage.getRGB(nextX, nextY)) :
+              new Color(mPainting.getCouleur(nextX, nextY).getRGB());
+
+      dir[i] = testCouleur(nextColor);
+    }
+
+    return dir;
+  }
+
+  /**
+   * Permet d'initialiser les probabiltiés de la fourmi à prendre une direction
+   * @param probaTD
+   * @param probaG
+   * @param probaD
+   * @param probaSuivre
+   */
+  private void initializeProba(float probaTD, float probaG, float probaD, float probaSuivre) {
+    mProba[0] = probaG;
+    mProba[1] = probaTD;
+    mProba[2] = probaD;
+    mProba[3] = probaSuivre;
+  }
+
+  /**
+   * Permet d'initialiser le type de déplacement de la fourmi
+   * @param typeDeplacement
+   */
+  private void initializeIncDirection(char typeDeplacement) {
+    mDecalDir = (typeDeplacement == 'd') ? 2 : 1;
+  }
+
   public long getNbDeplacements() {
     return mNbDeplacements;
   }
-  /****************************************************************************/
 
-  /*************************************************************************************************
-  */
   public int getX() {
     return x;
   }
 
-  /*************************************************************************************************
-  */
   public int getY() {
     return y;
   }
 
-  /*************************************************************************************************
-   * Titre : modulo Description : Fcontion de modulo permettant au fourmi de
-   * reapparaitre de l autre coté du Canvas lorsque qu'elle sorte de ce dernier
-   *
+
+  /**
+   * Calcul du modulo permettant aux fourmi de reapparaitre de l'autre coté du Canvas
+   * lorsqu'elle en sort
    * @param x
-   *          valeur
-   *
-   * @return int
+   * @param m
+   * @return
    */
   private int modulo(int x, int m) {
     return (x + m) % m;
   }
 
-  /*************************************************************************************************
-   * Titre : boolean testCouleur() Description : fonction testant l'égalité
-   * d'une couleur avec la couleur suivie
-   *
+  /**
+   * Permet de calculer la luminance d'une couleur donnée
+   * @param color
+   * @return la luminance
    */
-  private boolean testCouleur(Color pCouleur) {
-    boolean lReponse = false;
-    float lLuminance;
+  private float calculateLuminance(Color color) {
+    return 0.2426f * color.getRed() + 0.7152f * color.getGreen() + 0.0722f * color.getBlue();
+  }
 
-    /* on calcule la luminance */
-    lLuminance = 0.2426f * pCouleur.getRed() + 0.7152f * pCouleur.getGreen() + 0.0722f * pCouleur.getBlue();
-
-    /* test */
-    if (Math.abs(mLuminanceCouleurSuivie - lLuminance) < mSeuilLuminance) {
-      lReponse = true;
-      // System.out.print(x);
-    }
-
-    return lReponse;
+  /**
+   * Permet de savoir si la différence de luminance entre la couleur suivi par la fourmi et la couleur trouvé
+   * dépasse le seuil de luminance
+   *
+   * @param couleur
+   * @return un boolean informant que le seuil est franchit
+   */
+  private int testCouleur(Color couleur) {
+    float luminance = calculateLuminance(couleur);
+    return (Math.abs(mLuminanceCouleurSuivie - luminance) < mSeuilLuminance) ? 1 : 0;
   }
 }
