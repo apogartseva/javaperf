@@ -23,7 +23,7 @@ public class CPainting extends Canvas implements MouseListener {
   static private float[][] mMatriceConv25 = new float[5][5];
   static private float[][] mMatriceConv49 = new float[7][7];
 
-  // Matrices de numérateurs statiques
+  /* Matrices de numérateurs statiques*/
   private static final float[][] numerateurs9 = {
           {1, 2, 1},
           {2, 4, 2},
