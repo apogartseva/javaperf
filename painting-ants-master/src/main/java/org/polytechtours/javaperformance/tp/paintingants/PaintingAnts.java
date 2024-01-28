@@ -139,11 +139,9 @@ public class PaintingAnts extends java.applet.Applet implements Runnable {
    */
   @Override
   public void paint(Graphics g) {
-
-    if (mBaseImage == null) {
-      return;
+    if (mBaseImage != null) {
+      g.drawImage(mBaseImage, 0, 0, this);
     }
-    g.drawImage(mBaseImage, 0, 0, this);
   }
 
   /**
@@ -403,7 +401,6 @@ public class PaintingAnts extends java.applet.Applet implements Runnable {
    */
   @Override
   public void run() {
-    int i;
     String lMessage;
 
     mPainting.init();
@@ -422,7 +419,7 @@ public class PaintingAnts extends java.applet.Applet implements Runnable {
 
         synchronized (mMutexCompteur) {
           mCompteur %= 10000;
-          for (i = 0; i < mCompteur / 1000; i++) {
+          for (int i = 0; i < mCompteur / 1000; i++) {
             lMessage += ".";
           }
         }
